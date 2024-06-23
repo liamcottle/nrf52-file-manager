@@ -2,9 +2,9 @@
 
 A simple file manager (over BLE) for nRF52 based boards, such as the RAK4631.
 
-## What does it do?
+It allows you to browse, download and delete files stored in `InternalFS` / `LittleFS` flash memory on your nRF52 based microcontroller by connecting to it via Bluetooth in a web browser.
 
-Allows you to browse, download and delete files stored in `InternalFS` / `LittleFS` flash memory on your nRF52 based microcontroller by connecting to it via Bluetooth in a web browser.
+<img src="./screenshot.png" width="400">
 
 ## Setup
 
