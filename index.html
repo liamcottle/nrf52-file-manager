@@ -103,6 +103,7 @@
                 readFileCharacteristicId: "00000000-0000-0000-0000-000000000004".toLowerCase(),
 
                 device: null,
+                deleteFileCharacteristic: null,
                 listDirectoryCharacteristic: null,
 
                 path: "/",
@@ -142,6 +143,7 @@
 
                     // get service and characteristics
                     const service = await server.getPrimaryService(this.fileManagerServiceId);
+                    this.deleteFileCharacteristic = await service.getCharacteristic(this.deleteFileCharacteristicId);
                     this.listDirectoryCharacteristic = await service.getCharacteristic(this.listDirectoryCharacteristicId);
 
                     // load files
@@ -189,24 +191,25 @@
                     }
                 });
             },
-            async deleteFile(name) {
+            async deleteFile(filename) {
 
                 // confirm user wants to delete file
-                if(!confirm(`Are you sure you want to delete: ${name}?`)){
+                if(!confirm(`Are you sure you want to delete: ${filename}?`)){
                     return;
                 }
 
                 // delete file
                 try {
-                    const filePath = `${this.path}/${this.name}`;
-                    console.log(filePath);
-                    // await this.listDirectoryCharacteristic.writeValue(new TextEncoder().encode(filePath));
+                    const filePath = this.getAbsoluteFilePath(filename);
+                    await this.deleteFileCharacteristic.writeValue(new TextEncoder().encode(filePath));
                 } catch(e) {
                     alert(e);
                 }
 
-                // refresh
-                await this.refresh();
+                // refresh after short delay (waiting for file to actually be deleted)
+                setTimeout(() => {
+                    this.refresh();
+                }, 1000);
 
             },
             async loadDirectory(path) {
@@ -227,8 +230,10 @@
                 }
             },
             onDirectoryClick: function(entry) {
-                const newPath = this.path === "/" ? `/${entry.name}` : `${this.path}/${entry.name}`;
-                this.loadDirectory(newPath);
+                this.loadDirectory(this.getAbsoluteFilePath(entry.name));
+            },
+            getAbsoluteFilePath: function(filename) {
+                return this.path === "/" ? `/${filename}` : `${this.path}/${filename}`;
             },
             formatBytes: function(bytes, decimals = 2) {
                 if (!+bytes) return '0 Bytes';
