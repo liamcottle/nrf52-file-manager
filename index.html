@@ -78,12 +78,20 @@
             </div>
 
             <!-- icon -->
-            <div class="my-auto ml-auto hidden group-hover:flex">
+            <div class="my-auto ml-auto hidden group-hover:flex space-x-2">
+
+                <div v-if="!file.is_directory" @click.stop="onFileDownloadClick(file)" class="p-1 rounded-full bg-white shadow hover:bg-gray-100">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                    </svg>
+                </div>
+
                 <div @click.stop="deleteFile(file.name)" class="p-1 rounded-full bg-white shadow hover:bg-gray-100">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                     </svg>
                 </div>
+
             </div>
 
         </div>
@@ -103,8 +111,9 @@
                 readFileCharacteristicId: "00000000-0000-0000-0000-000000000003".toLowerCase(),
 
                 device: null,
-                deleteFileCharacteristic: null,
                 listDirectoryCharacteristic: null,
+                deleteFileCharacteristic: null,
+                readFileCharacteristic: null,
 
                 path: "/",
                 files: [],
@@ -143,8 +152,9 @@
 
                     // get service and characteristics
                     const service = await server.getPrimaryService(this.fileManagerServiceId);
-                    this.deleteFileCharacteristic = await service.getCharacteristic(this.deleteFileCharacteristicId);
                     this.listDirectoryCharacteristic = await service.getCharacteristic(this.listDirectoryCharacteristicId);
+                    this.deleteFileCharacteristic = await service.getCharacteristic(this.deleteFileCharacteristicId);
+                    this.readFileCharacteristic = await service.getCharacteristic(this.readFileCharacteristicId);
 
                     // load files
                     await this.loadDirectory("/");
@@ -212,6 +222,41 @@
                 }, 1000);
 
             },
+            async readFile(path) {
+                return new Promise(async (resolve, reject) => {
+                    try {
+
+                        var fileSize = null;
+                        var fileBytes = new ArrayBuffer(0)
+
+                        this.readFileCharacteristic.addEventListener('characteristicvaluechanged', async (event) => {
+
+                            // if we don't have a file size, the first notification is the expected file size
+                            if(fileSize === null){
+                                // read file size as int32 in little endian
+                                fileSize = event.target.value.getInt32(0, true);
+                                return;
+                            }
+
+                            // append received file bytes
+                            fileBytes = this.appendBuffer(fileBytes, event.target.value.buffer);
+
+                            // check if entire file has been received
+                            if(fileBytes.byteLength === fileSize){
+                                await this.readFileCharacteristic.stopNotifications();
+                                resolve(fileBytes);
+                            }
+
+                        });
+
+                        await this.readFileCharacteristic.startNotifications();
+                        await this.readFileCharacteristic.writeValue(new TextEncoder().encode(path));
+
+                    } catch(e) {
+                        reject(e);
+                    }
+                });
+            },
             async loadDirectory(path) {
                 try {
                     this.path = path;
@@ -224,6 +269,41 @@
             async refresh() {
                 await this.loadDirectory(this.path);
             },
+            async downloadFile(name, path) {
+                try {
+
+                    // get file bytes
+                    const data = await this.readFile(path);
+
+                    // create blob
+                    const byteArray = new Uint8Array(data);
+                    const blob = new Blob([byteArray], {
+                        type: "application/octet-stream",
+                    });
+
+                    // create object url for blob
+                    const objectUrl = URL.createObjectURL(blob);
+
+                    // create link element to download blob
+                    const link = document.createElement('a');
+                    link.href = objectUrl;
+                    link.download = name;
+                    link.style.display = "none";
+                    document.body.append(link);
+
+                    // click link to download file in browser
+                    link.click();
+
+                    // link element is no longer needed
+                    link.remove();
+
+                    // revoke object url to clear memory
+                    setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
+
+                } catch(e) {
+                    alert(e);
+                }
+            },
             onFileEntryClick: function(entry) {
                 if(entry.is_directory){
                     this.onDirectoryClick(entry);
@@ -231,6 +311,9 @@
             },
             onDirectoryClick: function(entry) {
                 this.loadDirectory(this.getAbsoluteFilePath(entry.name));
+            },
+            onFileDownloadClick: function(entry) {
+                this.downloadFile(entry.name, this.getAbsoluteFilePath(entry.name));
             },
             getAbsoluteFilePath: function(filename) {
                 return this.path === "/" ? `/${filename}` : `${this.path}/${filename}`;
@@ -242,6 +325,12 @@
                 const sizes = ['Bytes', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'];
                 const i = Math.floor(Math.log(bytes) / Math.log(k));
                 return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+            },
+            appendBuffer: function(buffer1, buffer2) {
+                var tmp = new Uint8Array(buffer1.byteLength + buffer2.byteLength);
+                tmp.set(new Uint8Array(buffer1), 0);
+                tmp.set(new Uint8Array(buffer2), buffer1.byteLength);
+                return tmp.buffer;
             },
         },
     }).mount('#app');
