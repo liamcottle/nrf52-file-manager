@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <meta charset="UTF-8">
+    <title>nRF52 BLE File Manager</title>
+
+    <!-- tailwind css -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+
+    <!-- vuejs -->
+    <script src="https://unpkg.com/vue@3"></script>
+
+</head>
+<body>
+
+<div id="app" class="max-w-lg">
+
+    <!-- connect button -->
+    <div v-if="!device" class="p-2">
+        <button @click="connect" type="button" class="inline-flex items-center gap-x-1.5 rounded-md bg-[#0082FC] px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0082FC]">
+            <svg class="-ml-0.5 h-5 w-5" fill="currentColor" viewBox="0 0 217.499 217.499">
+                <path d="M123.264,108.749l45.597-44.488c1.736-1.693,2.715-4.016,2.715-6.441s-0.979-4.748-2.715-6.441l-50.038-48.82
+                    c-2.591-2.528-6.444-3.255-9.78-1.853c-3.336,1.406-5.505,4.674-5.505,8.294v80.504l-42.331-41.3
+                    c-3.558-3.471-9.255-3.402-12.727,0.156c-3.471,3.558-3.401,9.256,0.157,12.727l48.851,47.663l-48.851,47.663
+                    c-3.558,3.471-3.628,9.169-0.157,12.727s9.17,3.628,12.727,0.156l42.331-41.3v80.504c0,3.62,2.169,6.888,5.505,8.294
+                    c1.128,0.476,2.315,0.706,3.493,0.706c2.305,0,4.572-0.886,6.287-2.559l50.038-48.82c1.736-1.693,2.715-4.016,2.715-6.441
+                    s-0.979-4.748-2.715-6.441L123.264,108.749z M121.539,30.354l28.15,27.465l-28.15,27.465V30.354z M121.539,187.143v-54.93
+                    l28.15,27.465L121.539,187.143z"/>
+            </svg>
+            <span>Connect</span>
+        </button>
+    </div>
+
+    <!-- file browser -->
+    <div v-if="device">
+        <div class="p-2 bg-gray-300 flex">
+
+            <!-- home -->
+            <button @click="loadDirectory('/')" class="my-auto mr-2 p-1 bg-white shadow rounded">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                </svg>
+            </button>
+
+            <!-- refresh -->
+            <button @click="refresh" class="my-auto mr-2 p-1 bg-white shadow rounded">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                </svg>
+            </button>
+
+            <!-- path -->
+            <div class="my-auto mr-2">{{ path }}</div>
+
+            <!-- disconnect -->
+            <button @click="disconnect" class="flex ml-auto my-auto px-2 py-1 bg-red-500 text-white shadow rounded text-sm font-semibold">
+                Disconnect
+            </button>
+
+        </div>
+        <div @click="onFileEntryClick(file)" v-for="file of files" class="group flex p-2 bg-gray-100 hover:bg-gray-200 cursor-pointer">
+
+            <!-- icon -->
+            <div class="my-auto mr-2">
+                <svg v-if="file.is_directory" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+                </svg>
+                <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                </svg>
+            </div>
+
+            <!-- details -->
+            <div class="my-auto mr-2">
+                <div class="font-semibold">{{ file.name }}</div>
+                <div class="text-xs">{{ formatBytes(file.size) }}</div>
+            </div>
+
+            <!-- icon -->
+            <div class="my-auto ml-auto hidden group-hover:flex">
+                <div @click.stop="deleteFile(file.name)" class="p-1 rounded-full bg-white shadow hover:bg-gray-100">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                    </svg>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<script>
+    Vue.createApp({
+        data() {
+            return {
+
+                // BLE UUIDs
+                fileManagerServiceId: "00000000-9239-11ea-bb37-0242ac130002".toLowerCase(),
+                listDirectoryCharacteristicId: "00000000-0000-0000-0000-000000000002".toLowerCase(),
+                deleteFileCharacteristicId: "00000000-0000-0000-0000-000000000003".toLowerCase(),
+                readFileCharacteristicId: "00000000-0000-0000-0000-000000000004".toLowerCase(),
+
+                device: null,
+                listDirectoryCharacteristic: null,
+
+                path: "/",
+                files: [],
+
+            };
+        },
+        mounted() {
+            // todo
+        },
+        methods: {
+            connect: async function() {
+                try {
+
+                    // ensure browser supports bluetooth
+                    if(!navigator.bluetooth || !navigator.bluetooth.requestDevice){
+                        alert("Your device does not support the Web Bluetooth API. Try using a different device.");
+                        return;
+                    }
+
+                    // request device
+                    this.device = await navigator.bluetooth.requestDevice({
+                        filters: [{
+                            services: [
+                                this.fileManagerServiceId,
+                            ],
+                        }],
+                    });
+
+                    // handle disconnected
+                    this.device.addEventListener('gattserverdisconnected', () => {
+                        this.onDisconnected();
+                    });
+
+                    // connect to device
+                    const server = await this.device.gatt.connect();
+
+                    // get service and characteristics
+                    const service = await server.getPrimaryService(this.fileManagerServiceId);
+                    this.listDirectoryCharacteristic = await service.getCharacteristic(this.listDirectoryCharacteristicId);
+
+                    // load files
+                    await this.loadDirectory("/");
+
+                } catch(e) {
+                    alert(e.message || e);
+                    console.error(e);
+                }
+            },
+            async disconnect() {
+                if(this.device){
+                    await this.device.gatt.disconnect();
+                }
+            },
+            onDisconnected() {
+                this.device = null;
+                this.files = [];
+            },
+            async listDirectory(path) {
+                return new Promise(async (resolve, reject) => {
+                    try {
+
+                        const entries = [];
+
+                        this.listDirectoryCharacteristic.addEventListener('characteristicvaluechanged', async (event) => {
+
+                            // decode data as text
+                            const data = new TextDecoder().decode(event.target.value.buffer);
+
+                            if(data.toString() === "done"){
+                                await this.listDirectoryCharacteristic.stopNotifications();
+                                resolve(entries);
+                            } else {
+                                entries.push(JSON.parse(data.toString()));
+                            }
+
+                        });
+
+                        await this.listDirectoryCharacteristic.startNotifications();
+                        await this.listDirectoryCharacteristic.writeValue(new TextEncoder().encode(path));
+
+                    } catch(e) {
+                        reject(e);
+                    }
+                });
+            },
+            async deleteFile(name) {
+
+                // confirm user wants to delete file
+                if(!confirm(`Are you sure you want to delete: ${name}?`)){
+                    return;
+                }
+
+                // delete file
+                try {
+                    const filePath = `${this.path}/${this.name}`;
+                    console.log(filePath);
+                    // await this.listDirectoryCharacteristic.writeValue(new TextEncoder().encode(filePath));
+                } catch(e) {
+                    alert(e);
+                }
+
+                // refresh
+                await this.refresh();
+
+            },
+            async loadDirectory(path) {
+                try {
+                    this.path = path;
+                    this.files = await this.listDirectory(this.path);
+                } catch(e) {
+                    console.log(e);
+                    this.files = [];
+                }
+            },
+            async refresh() {
+                await this.loadDirectory(this.path);
+            },
+            onFileEntryClick: function(entry) {
+                if(entry.is_directory){
+                    this.onDirectoryClick(entry);
+                }
+            },
+            onDirectoryClick: function(entry) {
+                const newPath = this.path === "/" ? `/${entry.name}` : `${this.path}/${entry.name}`;
+                this.loadDirectory(newPath);
+            },
+            formatBytes: function(bytes, decimals = 2) {
+                if (!+bytes) return '0 Bytes';
+                const k = 1024;
+                const dm = decimals < 0 ? 0 : decimals;
+                const sizes = ['Bytes', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+            },
+        },
+    }).mount('#app');
+</script>
+
+</body>
+</html>
