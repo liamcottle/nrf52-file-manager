@@ -21,10 +21,10 @@ private:
     static void readFileWriteCallback(uint16_t handle, BLECharacteristic* chr, uint8_t* data, uint16_t len);
 };
 
-BLEService BLEFileManager::fileManagerService = BLEService(BLEUuid("00000000-9239-11ea-bb37-0242ac130002"));
-BLECharacteristic BLEFileManager::listDirectoryCharacteristic = BLECharacteristic(BLEUuid("00000000-0000-0000-0000-000000000001"));
-BLECharacteristic BLEFileManager::deleteFileCharacteristic = BLECharacteristic(BLEUuid("00000000-0000-0000-0000-000000000002"));
-BLECharacteristic BLEFileManager::readFileCharacteristic = BLECharacteristic(BLEUuid("00000000-0000-0000-0000-000000000003"));
+BLEService BLEFileManager::fileManagerService = BLEService(BLEUuid("6c69616d-636f-7474-6c65-66696c657300"));
+BLECharacteristic BLEFileManager::listDirectoryCharacteristic = BLECharacteristic(BLEUuid("6c69616d-636f-7474-6c65-66696c657301"));
+BLECharacteristic BLEFileManager::deleteFileCharacteristic = BLECharacteristic(BLEUuid("6c69616d-636f-7474-6c65-66696c657302"));
+BLECharacteristic BLEFileManager::readFileCharacteristic = BLECharacteristic(BLEUuid("6c69616d-636f-7474-6c65-66696c657303"));
 
 BLEFileManager::BLEFileManager() {}
 
